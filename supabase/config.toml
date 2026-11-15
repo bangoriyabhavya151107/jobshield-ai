@@ -1,0 +1,4 @@
+project_id = "jobshield-ai"
+
+[functions.analyze-offer]
+verify_jwt = true
