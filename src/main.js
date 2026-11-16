@@ -270,3 +270,27 @@ $("signOutBtn")?.addEventListener("click", async () => {
 if (page === "account" && !isConfigured) {
   showMessage($("authMessage"), "Setup required: create .env using .env.example. Only Supabase public values go here. Never put your Gemini key in the browser.", "error");
 }
+
+
+// Premium motion polish: reveal content as it enters the viewport.
+document.querySelectorAll(".feature-card,.safety-card,.side-card,.form-panel,.report-card,.history-row").forEach((item) => {
+  item.classList.add("scroll-reveal");
+});
+if ("IntersectionObserver" in window) {
+  const revealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -35px 0px" });
+  document.querySelectorAll(".scroll-reveal").forEach((item) => revealObserver.observe(item));
+} else {
+  document.querySelectorAll(".scroll-reveal").forEach((item) => item.classList.add("is-visible"));
+}
+
+// Close the mobile navigation after choosing a destination.
+document.querySelectorAll("#mainNav a").forEach((link) => {
+  link.addEventListener("click", () => $("mainNav")?.classList.remove("open"));
+});
