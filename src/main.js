@@ -294,3 +294,47 @@ if ("IntersectionObserver" in window) {
 document.querySelectorAll("#mainNav a").forEach((link) => {
   link.addEventListener("click", () => $("mainNav")?.classList.remove("open"));
 });
+
+
+/* JOBSHIELD AI - SMART PAGE PRELOADING */
+
+const prefetchedPages = new Set();
+
+function prefetchPage(url) {
+  const link = document.createElement("link");
+
+  const pageURL = new URL(url, window.location.href);
+
+  if (
+    pageURL.origin !== window.location.origin ||
+    pageURL.pathname === window.location.pathname ||
+    prefetchedPages.has(pageURL.href)
+  ) {
+    return;
+  }
+
+  prefetchedPages.add(pageURL.href);
+
+  link.rel = "prefetch";
+  link.href = pageURL.href;
+  link.as = "document";
+
+  document.head.appendChild(link);
+}
+
+// Preload pages when a visitor approaches a link.
+document.querySelectorAll('a[href]').forEach((link) => {
+  link.addEventListener("pointerenter", () => {
+    prefetchPage(link.href);
+  }, { passive: true });
+
+  link.addEventListener("focus", () => {
+    prefetchPage(link.href);
+  }, { passive: true });
+
+  // Helpful for mobile devices.
+  link.addEventListener("touchstart", () => {
+    prefetchPage(link.href);
+  }, { passive: true });
+});
+
