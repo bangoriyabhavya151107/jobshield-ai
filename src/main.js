@@ -718,83 +718,38 @@ if (page === "account" && !isConfigured) {
   );
 }
 
-// Premium motion polish: reveal content as it enters the viewport.
-document.querySelectorAll(
-  ".feature-card,.safety-card,.side-card,.form-panel,.report-card,.history-row"
-).forEach((item) => {
-  item.classList.add("scroll-reveal");
-});
+/* JobShield AI navigation performance: prefetch same-site HTML pages.
+   This keeps normal links and full-page navigation intact, so forms, auth,
+   browser history, and Supabase flows continue to work as before. */
+(() => {
+  const prefetched = new Set();
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) return;
 
-if ("IntersectionObserver" in window) {
-  const revealObserver = new IntersectionObserver(
-    (entries, observer) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
-        }
-      });
-    },
-    {
-      threshold: 0.12,
-      rootMargin: "0px 0px -35px 0px"
-    }
-  );
-
-  document.querySelectorAll(".scroll-reveal").forEach((item) =>
-    revealObserver.observe(item)
-  );
-
-} else {
-  document.querySelectorAll(".scroll-reveal").forEach((item) =>
-    item.classList.add("is-visible")
-  );
-}
-
-// Close the mobile navigation after choosing a destination.
-document.querySelectorAll("#mainNav a").forEach((link) => {
-  link.addEventListener("click", () =>
-    $("mainNav")?.classList.remove("open")
-  );
-});
-
-/* JOBSHIELD AI - SMART PAGE PRELOADING */
-
-const prefetchedPages = new Set();
-
-function prefetchPage(url) {
-  const link = document.createElement("link");
-  const pageURL = new URL(url, window.location.href);
-
-  if (
-    pageURL.origin !== window.location.origin ||
-    pageURL.pathname === window.location.pathname ||
-    prefetchedPages.has(pageURL.href)
-  ) {
-    return;
+  function warmPage(anchor) {
+    if (!anchor || anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download")) return;
+    let url;
+    try { url = new URL(anchor.href, location.href); } catch { return; }
+    if (url.origin !== location.origin || !/\.html$/.test(url.pathname) || url.pathname === location.pathname || prefetched.has(url.href)) return;
+    prefetched.add(url.href);
+    const hint = document.createElement("link");
+    hint.rel = "prefetch";
+    hint.as = "document";
+    hint.href = url.href;
+    document.head.appendChild(hint);
   }
 
-  prefetchedPages.add(pageURL.href);
+  document.addEventListener("pointerover", (event) => {
+    const anchor = event.target.closest?.("a[href]");
+    if (anchor) warmPage(anchor);
 
-  link.rel = "prefetch";
-  link.href = pageURL.href;
-  link.as = "document";
-
-  document.head.appendChild(link);
-}
-
-// Preload pages when a visitor approaches a link.
-document.querySelectorAll("a[href]").forEach((link) => {
-  link.addEventListener("pointerenter", () => {
-    prefetchPage(link.href);
   }, { passive: true });
-
-  link.addEventListener("focus", () => {
-    prefetchPage(link.href);
+  document.addEventListener("focusin", (event) => {
+    const anchor = event.target.closest?.("a[href]");
+    if (anchor) warmPage(anchor);
+  });
+  document.addEventListener("touchstart", (event) => {
+    const anchor = event.target.closest?.("a[href]");
+    if (anchor) warmPage(anchor);
   }, { passive: true });
-
-  // Helpful for mobile devices.
-  link.addEventListener("touchstart", () => {
-    prefetchPage(link.href);
-  }, { passive: true });
-});
+})();
