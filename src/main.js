@@ -1,4 +1,3 @@
-import "./style.css";
 import { supabase, isConfigured } from "./lib/supabase.js";
 
 const $ = (id) => document.getElementById(id);
