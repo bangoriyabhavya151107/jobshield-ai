@@ -290,15 +290,43 @@ $("authForm")?.addEventListener("submit", async (event) => {
     showMessage(message, err.message || "Could not complete account request.", "error");
   } finally { button.disabled = false; }
 });
+
 $("signOutBtn")?.addEventListener("click", async () => {
   if (!supabase) return;
-  const { error } = await supabase.auth.signOut();
-  if (error) showMessage($("authMessage"), error.message, "error");
-  else { setUser(null); showMessage($("authMessage"), "You have signed out.", "success"); }
+
+  const confirmed = window.confirm(
+    "Are you sure you want to sign out of JobShield AI?"
+  );
+
+  if (!confirmed) return;
+
+  const button = $("signOutBtn");
+  if (button) button.disabled = true;
+
+  try {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) throw error;
+
+    setUser(null);
+    showMessage(
+      $("authMessage"),
+      "You have signed out successfully.",
+      "success"
+    );
+
+    window.location.href = "account.html";
+  } catch (error) {
+    showMessage(
+      $("authMessage"),
+      error.message || "Sign out failed. Please try again.",
+      "error"
+    );
+  } finally {
+    if (button) button.disabled = false;
+  }
 });
-if (page === "account" && !isConfigured) {
-  showMessage($("authMessage"), "Setup required: create .env using .env.example. Only Supabase public values go here. Never put your Gemini key in the browser.", "error");
-}
+
 
 
 // Premium motion polish: reveal content as it enters the viewport.
