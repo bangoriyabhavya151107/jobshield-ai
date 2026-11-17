@@ -23,37 +23,66 @@ function toast(text) {
   el.classList.add("show");
   window.setTimeout(() => el.classList.remove("show"), 2600);
 }
+
 function setUser(nextUser) {
   user = nextUser || null;
+
   const label = $("accountLabel");
   const link = $("accountLink");
-  if (label) label.textContent = user?.email || "Guest mode";
+
+  if (label) {
+    label.textContent = user?.email || "Guest mode";
+    label.title = user?.email || "Guest mode";
+    label.setAttribute(
+      "aria-label",
+      user?.email ? `Signed in as ${user.email}` : "Guest mode"
+    );
+  }
+
   if (link) {
     link.textContent = user ? "Sign out" : "Sign in";
     link.href = user ? "#" : "account.html";
+
     link.onclick = user ? async (event) => {
       event.preventDefault();
-      if (!supabase) return;
-      const { error } = await supabase.auth.signOut();
-      if (error) toast(error.message);
-      else { setUser(null); toast("You have signed out."); }
+
+      const confirmed = window.confirm(
+        "Are you sure you want to sign out of JobShield AI?"
+      );
+
+      if (!confirmed) return;
+
+      if (!supabase) {
+        toast("Supabase is not configured.");
+        return;
+      }
+
+      link.style.pointerEvents = "none";
+
+      try {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) throw error;
+
+        setUser(null);
+        toast("You have signed out successfully.");
+        window.location.href = "account.html";
+      } catch (error) {
+        toast(error.message || "Sign out failed. Please try again.");
+      } finally {
+        link.style.pointerEvents = "";
+      }
     } : null;
   }
+
   const signOut = $("signOutBtn");
-  if (signOut) signOut.classList.toggle("hidden", !user);
+
+  if (signOut) {
+    signOut.classList.toggle("hidden", !user);
+  }
+
   if (page === "history") loadHistory();
   if (page === "results") loadReportFromHistory();
-}
-document.querySelectorAll("[data-nav]").forEach((link) => {
-  if (link.dataset.nav === page) link.classList.add("active");
-});
-$("menuToggle")?.addEventListener("click", () => $("mainNav")?.classList.toggle("open"));
-
-if (isConfigured) {
-  supabase.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
-  supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user || null));
-} else {
-  setUser(null);
 }
 
 function riskClass(level) { return String(level || "Low").toLowerCase(); }
