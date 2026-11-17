@@ -216,25 +216,122 @@ if (page === "results") {
 }
 
 // History page
+
+let historyRequestId = 0;
+
 async function loadHistory() {
   const list = $("historyList");
+  const intro = $("historyIntro");
+
   if (!list) return;
-  if (!isConfigured) { list.innerHTML = `<div class="empty-state"><h2>Supabase setup required</h2><p>Add your public Supabase values to .env.</p></div>`; return; }
-  if (!user) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">▤</div><h2>Sign in to view your scans</h2><p>Your reports are private to your account.</p><a class="btn btn-primary" href="account.html">Sign in →</a></div>`;
-    $("historyIntro").textContent = "Sign in to view your saved reports.";
+
+  const requestId = ++historyRequestId;
+
+  if (!isConfigured || !supabase) {
+    if (intro) intro.textContent = "Supabase configuration is missing.";
+    list.innerHTML = `
+      <div class="empty-state">
+        <h2>Connection required</h2>
+        <p>Please check your Vercel environment variables.</p>
+      </div>`;
     return;
   }
-  $("historyIntro").textContent = `Signed in as ${user.email}`;
-  list.innerHTML = `<div class="empty-state"><p>Loading your saved reports…</p></div>`;
-  const { data, error } = await supabase.from("scan_reports")
-    .select("id,company_name,offer_type,risk_score,risk_level,created_at")
-    .order("created_at", { ascending: false }).limit(50);
-  if (error) { list.innerHTML = `<div class="empty-state"><p>${escapeHTML(error.message)}</p></div>`; return; }
-  if (!data?.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><h2>No scans yet</h2><p>Your completed scans will appear here.</p><a class="btn btn-primary" href="scan.html">Start your first scan →</a></div>`; return; }
-  list.innerHTML = data.map(row => `<article class="history-row"><div><strong>${escapeHTML(row.company_name || "Unnamed opportunity")}</strong><small>${escapeHTML(row.offer_type)} · ${new Date(row.created_at).toLocaleString()}</small></div><div class="history-score">${row.risk_score}/100 · ${escapeHTML(row.risk_level)}<br><a href="results.html?id=${encodeURIComponent(row.id)}" data-report-id="${escapeHTML(row.id)}">Open report →</a></div></article>`).join("");
+
+  if (!user) {
+    if (intro) intro.textContent = "You are not signed in.";
+    list.innerHTML = `
+      <div class="empty-state">
+        <h2>Sign in to view your scans</h2>
+        <p>Your saved reports are private to your account.</p>
+        <a class="btn btn-primary" href="account.html">Sign in →</a>
+      </div>`;
+    return;
+  }
+
+  const currentUser = user;
+
+  if (intro) {
+    intro.textContent = `Signed in as ${currentUser.email}`;
+  }
+
+  list.innerHTML = `
+    <div class="empty-state">
+      <p>Loading your saved reports...</p>
+    </div>`;
+
+  try {
+    const queryPromise = supabase
+      .from("scan_reports")
+      .select("id,company_name,offer_type,risk_score,risk_level,created_at")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Loading took too long. Please check your internet and try again."));
+      }, 15000);
+    });
+
+    const { data, error } = await Promise.race([
+      queryPromise,
+      timeoutPromise
+    ]);
+
+    if (requestId !== historyRequestId) return;
+
+    if (user?.id !== currentUser.id) return;
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✓</div>
+          <h2>No scans yet</h2>
+          <p>Your completed scans will appear here.</p>
+          <a class="btn btn-primary" href="scan.html">
+            Start your first scan →
+          </a>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = data.map(row => `
+      <article class="history-row">
+        <div>
+          <strong>${escapeHTML(row.company_name || "Unnamed opportunity")}</strong>
+          <small>
+            ${escapeHTML(row.offer_type || "Job offer")}
+            · ${new Date(row.created_at).toLocaleString()}
+          </small>
+        </div>
+        <div class="history-score">
+          ${Number(row.risk_score) || 0}/100
+          · ${escapeHTML(row.risk_level || "Unknown")}
+          <br>
+          <a href="results.html?id=${encodeURIComponent(row.id)}">
+            Open report →
+          </a>
+        </div>
+      </article>
+    `).join("");
+
+  } catch (error) {
+    if (requestId !== historyRequestId) return;
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <h2>Unable to load your history</h2>
+        <p>${escapeHTML(error.message || "Please try again.")}</p>
+        <button class="btn btn-primary" id="retryHistoryBtn">
+          Try again
+        </button>
+      </div>`;
+
+    $("retryHistoryBtn")?.addEventListener("click", loadHistory);
+  }
 }
-$("refreshHistoryBtn")?.addEventListener("click", loadHistory);
 
 // Company verification page — this is a checklist, not a registry lookup.
 $("verifyForm")?.addEventListener("submit", (event) => {
@@ -351,3 +448,46 @@ if ("IntersectionObserver" in window) {
 document.querySelectorAll("#mainNav a").forEach((link) => {
   link.addEventListener("click", () => $("mainNav")?.classList.remove("open"));
 });
+
+
+
+/* Initialize Supabase authentication on every page */
+
+async function initializeAuthentication() {
+  if (!supabase || !isConfigured) {
+    setUser(null);
+
+    if (page === "history") {
+      $("historyIntro").textContent =
+        "Supabase is not configured. Please check your settings.";
+    }
+
+    return;
+  }
+
+  // Listen for login, logout and token refresh events.
+  supabase.auth.onAuthStateChange((event, session) => {
+    setUser(session?.user || null);
+  });
+
+  try {
+    // Restore the existing login session after page refresh.
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) throw error;
+
+    setUser(data.session?.user || null);
+
+  } catch (error) {
+    console.error("Authentication initialization failed:", error);
+
+    setUser(null);
+
+    if (page === "history") {
+      $("historyIntro").textContent =
+        "Could not restore your login session. Please sign in again.";
+    }
+  }
+}
+
+initializeAuthentication();
