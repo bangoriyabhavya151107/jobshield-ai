@@ -444,9 +444,62 @@ if ("IntersectionObserver" in window) {
   document.querySelectorAll(".scroll-reveal").forEach((item) => item.classList.add("is-visible"));
 }
 
-// Close the mobile navigation after choosing a destination.
-document.querySelectorAll("#mainNav a").forEach((link) => {
-  link.addEventListener("click", () => $("mainNav")?.classList.remove("open"));
+
+// Mobile navigation: open, close and update accessibility state.
+
+const menuToggle = $("menuToggle");
+const mainNav = $("mainNav");
+
+function closeMobileMenu() {
+  if (!menuToggle || !mainNav) return;
+
+  mainNav.classList.remove("open");
+  menuToggle.setAttribute("aria-expanded", "false");
+  menuToggle.setAttribute("aria-label", "Open menu");
+  menuToggle.textContent = "☰";
+}
+
+menuToggle?.addEventListener("click", (event) => {
+  event.stopPropagation();
+
+  const isOpen = mainNav?.classList.toggle("open");
+
+  menuToggle.setAttribute("aria-expanded", String(Boolean(isOpen)));
+  menuToggle.setAttribute(
+    "aria-label",
+    isOpen ? "Close menu" : "Open menu"
+  );
+  menuToggle.textContent = isOpen ? "✕" : "☰";
+});
+
+// Close after selecting a navigation link.
+mainNav?.querySelectorAll("a").forEach((link) => {
+  link.addEventListener("click", closeMobileMenu);
+});
+
+// Close when clicking outside the navigation.
+document.addEventListener("click", (event) => {
+  if (
+    mainNav?.classList.contains("open") &&
+    !mainNav.contains(event.target) &&
+    !menuToggle?.contains(event.target)
+  ) {
+    closeMobileMenu();
+  }
+});
+
+// Close with Escape key.
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMobileMenu();
+  }
+});
+
+// Close mobile menu when returning to desktop layout.
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 900) {
+    closeMobileMenu();
+  }
 });
 
 

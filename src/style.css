@@ -371,3 +371,61 @@ a{color:inherit}
     gap: 5px;
   }
 }
+
+
+/* JobShield AI - Mobile navigation fix */
+
+@media (max-width: 900px) {
+
+  .nav-wrap {
+    position: relative;
+  }
+
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    z-index: 1002;
+  }
+
+  .main-nav {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    z-index: 1001;
+
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+
+    padding: 18px;
+    border: 1px solid rgba(180, 150, 255, 0.25);
+    border-radius: 18px;
+
+    background: #100d20;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+  }
+
+  .main-nav.open {
+    display: flex;
+  }
+
+  .main-nav a {
+    display: block;
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
+
+  .main-nav a:hover {
+    background: rgba(155, 105, 255, 0.15);
+  }
+
+  .nav-actions {
+    position: relative;
+    z-index: 1002;
+  }
+}
